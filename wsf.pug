@@ -1,0 +1,355 @@
+job
+
+  script: :livescript(bare="true")
+
+    str = do ->
+
+      slash = '\\'
+
+      lf = '\n'
+      cr = '\r'
+      crlf = "#cr#lf"
+
+      spc = ' '
+
+      rtrim = (.replace /\s+$/, '')
+      ltrim = (.replace /^\s+/, '')
+
+      trim = -> ltrim rtrim it
+
+      repeat = (value, count)->
+
+        result = ''
+        for til count => result += value
+        result
+
+      pad-left = (value, count, pad='0') ->
+
+        padding = repeat pad, count
+
+        result = "#padding#{ value.to-string! }"
+        result.slice -count
+
+      pad-right = (value, count, pad=' ') ->
+
+        padding = repeat pad, count
+        result = "#padding#value.to-string!"
+        result.slice count
+
+      ucase = (.to-upper-case!)
+      lcase = (.to-lower-case!)
+
+      equals = (one, another) -> (ucase trim one) is (ucase trim another)
+
+      chars = (.split '')
+      unchars = (.join '')
+
+      words = -> return [] if it.length is 0 ; it.split /[ ]+/
+      unwords = (.join spc)
+
+      lines = -> return [] if it is void or it.length is 0 ; it.split crlf
+      unlines = (.join nl)
+
+      quote = (value, affix='"') -> "#affix#value#affix"
+      unquote = (value, affix='"') -> unquoted = value.split affix ; unquoted.join ''
+
+      single-quote = (value) -> quote value, "'"
+
+      replace = (where, one, another) -> result = where.split one ; result.join another
+
+      remove = (where, what) -> replace where, what, ''
+
+      contains = (where, what) -> (where.index-of what) isnt -1
+
+      { slash, ltrim, rtrim, trim, ucase, lcase, equals, lf, cr, crlf, spc, lines, unlines, words, unwords, chars, unchars, quote, single-quote, unquote, replace, remove, pad-right, pad-left, contains }
+
+    list = do ->
+
+      take = (items, n) -> if n <= 0 then items.slice 0, 0 else items.slice 0, n
+      drop = (items, n) -> if n <= 0 then items else items.slice n
+
+      at = (items, index) -> if index < 0 then items[items.length + index] else items[index]
+
+      head = -> it `at` 0
+      tail = -> drop it, 1
+
+      first = head
+      last = -> it[*-1]
+
+      indices-of = (items, which) -> [ index for item,index in items when item is which ]
+
+      index-of = (items, which) -> first (items `indices-of` which)
+
+      each = (items, dyadic) -> for item,index in items => dyadic item, index
+
+      map = (items, dyadic) -> [ (dyadic item,index) for item,index in items ]
+
+      filter = (items, dyadic) -> [ (item) for item,index in items when dyadic item,index ]
+
+      reject = (items, dyadic) -> [ (item) for item,index in items when not dyadic item,index ]
+
+      partition = (items, predicate) ->
+
+        passed = [] ; failed = []
+        for item in items => (if predicate item then passed else failed).push item
+
+        { passed, failed }
+
+      from-file = (filename) ->
+
+        lines = str.lines textfile.get-content filename
+
+        result = []
+
+        for line in lines
+
+          continue if (str.trim line) is ''
+          continue if (list.first str.chars line) is '#'
+
+          result[*] = line
+
+        result
+
+      { take, drop, head, tail, first, last, at, indices-of, index-of, map, filter, reject, each, from-file, partition }
+
+    keyvalue = (key, value) ->
+
+      k = key
+      v = value
+
+      to-string = (separator=' ') -> "#k#separator#v"
+
+      get-value = -> v
+      set-value = !-> v := it
+
+      get-key = -> k
+      set-key = !-> k := it
+
+      as-fieldset = -> key = k ; value = v ; { key, value }
+
+      {
+
+        get-key, set-key,
+        get-value, set-value,
+
+        to-string,
+        as-fieldset
+
+      }
+
+    separated-keyvalue = (value, separator=' ') ->
+
+      index = (str.chars value) `list.index-of` separator
+      return void if index is void
+
+      key = value.slice 0, index
+      value = value.slice index+1
+
+      keyvalue key, value
+
+    keyvalues = do ->
+
+      keys = (kvs) -> list.map kvs, -> it.get-key!
+      values = (kvs) -> list.map kvs, -> it.get-value!
+
+      from-lines = (lines, separator=' ') ->
+
+        result = []
+
+        for line in lines
+
+          continue if (str.trim line) is ''
+
+          first-char = list.first str.chars str.trim line
+
+          continue if first-char is '#'
+
+          result[*] = separated-keyvalue line, separator
+
+        result
+
+      from-file = (filename, separator=' ') -> from-lines (str.lines textfile.get-content filename), separator
+
+      join = (kvs, separator=' ') ->
+
+        result = []
+
+        for kv in kvs
+          item = kv.to-string separator
+          result[*] = item
+
+        result.join separator
+
+      { keys, values, from-file, from-lines }
+
+    WScript
+
+      exit = (errorlevel=0) -> ..Quit errorlevel
+
+      ..StdOut => out = -> ..Write it
+      ..StdErr => err = -> ..Write it
+
+      ..Arguments.Unnamed
+
+        args-count = ..Count
+        arg = -> ..Item it
+
+    args = [ (arg arg-index) for arg-index til args-count ]
+
+    { passed: params, failed: options } = list.partition args, -> it `str.contains` '='
+
+    params = keyvalues.from-lines params, '='
+
+    outs = !->
+
+      args = [] ;
+      for arg in arguments => args[*] = arg
+      out args.join ' '
+
+    lfout = !-> out str.lf ; outs ...
+
+    echo = lfout
+
+    errs = !->
+
+      args = []
+      for arg in arguments => args[*] = arg
+      err args.join ' '
+
+    lferr = !-> err str.lf ; errs ...
+
+    fail = (msg='', errorlevel=1) -> err msg unless msg is '' ; exit errorlevel
+
+    ax = -> new ActiveXObject it
+
+    fso = do ->
+
+      ax 'Scripting.FileSystemObject'
+
+        text-stream = (name, mode, create = no, format = 0) -> ..OpenTextFile name, mode, create, format
+
+        file-exists = -> ..FileExists it
+        delete-file = -> ..DeleteFile it
+
+      { text-stream, file-exists, delete-file }
+
+    textfile = do ->
+
+      io-mode =
+
+        reading: 1
+        writing: 2
+        appending: 8
+
+      stream = (name, mode) -> fso.text-stream name, mode
+
+      read = (stream) ->
+        stream => content = unless ..AtEndOfStream then ..ReadAll! else ''
+        content
+
+      write = (stream, content) -> stream.Write content
+
+      get-content = (filename) -> read stream filename, io-mode.reading
+
+      set-content = (filename, content, mode = io-mode.writing) -> write (stream filename, mode), content
+
+      add-content = (filename, content) -> set-content filename, content, io-mode.appending
+
+      { get-content, add-content, set-content }
+
+    shell = do ->
+
+      ax 'WScript.Shell'
+
+        run = (command-line, sync = no) -> ..Run command-line, 6, sync
+
+      cmd = (command-line, sync = yes) -> run "%comspec% /c #command-line", sync
+
+      ps = (command, sync = yes) ->
+
+        ps-unsafe-chars = <[ " ]>
+
+        safe-command = ->
+
+          result = it ; for unsafe-char in ps-unsafe-chars => result = str.replace result, unsafe-char, "`#unsafe-char"
+          result
+
+        run "powershell -ExecutionPolicy ByPass -command #{ str.quote safe-command command }", sync
+
+      { run, cmd, ps }
+
+    wmi = do ->
+
+      wbem-flags =
+        return-immediately: 0x10
+        forward-only: 0x20
+
+      s = str.slash
+
+      cimv2 = -> GetObject "winmgmts:#s#s.#{s}root#{s}CIMV2"
+
+      exec-query = (statement) ->
+
+        cimv2!ExecQuery statement, 'WQL', wbem-flags.return-immediately + wbem-flags.forward-only
+
+      select = (fields, from, predicate) ->
+
+        statement = "SELECT #{ fields.join ',' } FROM #from WHERE #predicate"
+        exec-query statement
+
+      items = (fields, from, predicate) ->
+
+        enumerable.fieldsets-with-fields (select fields, from, predicate), fields
+
+      { exec-query, select, items }
+
+    win32-process = do ->
+
+      list = (fields, predicate) -> wmi.items fields, 'Win32_Process', predicate
+
+      terminate = (pid) -> shell.run "taskkill /PID #pid"
+
+      { list, terminate }
+
+    uuid = ->
+
+      ax 'Scriptlet.TypeLib' .Guid
+        return ..substr 1 36
+
+    current-process = do ->
+
+      pid = ->
+
+        uid = uuid! ; run "winver #uid"
+        for child-process in win32-process.list <[ ProcessID ParentProcessID ]>, "CommandLine LIKE '%#uid%'"
+
+          winver-pid = child-process.ProcessID
+          processid = child-process.ParentProcessID
+
+          win32-process.terminate winver-pid
+
+          return processid
+
+        void
+
+      get-fields = (fieldnames) -> list.first win32-process.list fieldnames, "ProcessID = #{ pid! }"
+
+      get-command-line = -> get-fields <[ CommandLine ]> .CommandLine
+
+      { pid, get-command-line }
+
+    exists = -> fso.file-exists it
+    del = -> fso.delete-file it
+
+    fail-if-not-found = (type, filename) !->
+
+      fail "#type file '#filename' not found." \
+        unless exists filename
+
+  script
+
+    block includes
+
+  script
+
+    block script

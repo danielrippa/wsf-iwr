@@ -1,0 +1,1 @@
+@cs %~dp0iwr.wsf %*

@@ -1,0 +1,89 @@
+extends wsf
+
+append includes
+
+  :livescript(bare="true")
+
+    iwr = (options-list, kv-params) ->
+
+      options-list[*] = 'basicparsing'
+
+      option-mappings = keyvalues.from-lines do
+
+        * 'basicparsing -UseBasicParsing'
+          'url -Uri'
+          'session -WebSession'
+          'sessionvar -SessionVariable'
+          'ua -UserAgent'
+          'timeout -TimeoutSec'
+          'headers -Headers'
+          'method -Method'
+          'contenttype -ContentType'
+          'infile -InFile'
+          'outfile -OutFile'
+
+      option-names = keyvalues.keys option-mappings
+      mapped-names = keyvalues.values option-mappings
+
+      quoted-parameter-names = <[ url session sessionvar ua method contenttype infile outfile ]>
+
+      mapping = ->
+
+        index = option-names `list.index-of` it
+
+        if index is void
+
+          lferr "Invalid Powershell Invoke-WebRequest parameter '#it'."
+          lferr "Valid parameter names are:" ; lferr!
+          for option-name in option-names
+
+            lferr str.quote option-name
+
+          lferr!
+
+          void
+
+        else
+
+          mapped-names[index]
+
+      ##
+
+      iwr-options = list.map options-list, -> mapping it
+
+      for kv-param in kv-params
+
+        param = kv-param.as-fieldset!
+
+        param-value = param.value
+        if param.key in quoted-parameter-names
+          param-value = str.single-quote param-value
+
+        param-name = mapping param.key
+
+        continue if param-name is void
+
+        iwr-options[*] = "#param-name #param-value"
+
+      shell.ps "iwr #{ iwr-options.join ' ' }", yes
+
+append script
+
+  :livescript(bare="true")
+
+    exit! if args-count is 0
+
+    output-to-stdout = (list.index-of 'outfile', keyvalues.keys params) isnt 0
+    if output-to-stdout
+
+      stdout-filename = "#{ uuid! }.txt"
+      params[*] = keyvalue 'outfile', stdout-filename
+
+    errorlevel = iwr options, params
+    exit errorlevel unless errorlevel is 0
+
+    if output-to-stdout
+
+      fail! if not exists stdout-filename
+      for line in list.from-file stdout-filename => lfout line
+      del stdout-filename
