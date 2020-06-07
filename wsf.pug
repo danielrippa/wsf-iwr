@@ -6,6 +6,9 @@ job
 
       slash = '\\'
 
+      doublequote = '"'
+      singlequote = "'"
+
       lf = '\n'
       cr = '\r'
       crlf = "#cr#lf"
@@ -53,7 +56,7 @@ job
       quote = (value, affix='"') -> "#affix#value#affix"
       unquote = (value, affix='"') -> unquoted = value.split affix ; unquoted.join ''
 
-      single-quote = (value) -> quote value, "'"
+      single-quote = (value) -> quote value, singlequote
 
       replace = (where, one, another) -> result = where.split one ; result.join another
 
@@ -61,7 +64,7 @@ job
 
       contains = (where, what) -> (where.index-of what) isnt -1
 
-      { slash, ltrim, rtrim, trim, ucase, lcase, equals, lf, cr, crlf, spc, lines, unlines, words, unwords, chars, unchars, quote, single-quote, unquote, replace, remove, pad-right, pad-left, contains }
+      { slash, ltrim, rtrim, trim, ucase, lcase, equals, lf, cr, crlf, spc, lines, unlines, words, unwords, chars, unchars, quote, single-quote, unquote, replace, remove, pad-right, pad-left, contains, singlequote, doublequote }
 
     list = do ->
 

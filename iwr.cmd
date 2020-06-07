@@ -1,1 +1,1 @@
-@cs %~dp0iwr.wsf %*
+@cs %~dp0iwr-cli.wsf %*

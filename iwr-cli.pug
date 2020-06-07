@@ -1,0 +1,22 @@
+extends iwr
+
+block script
+
+  :livescript(bare="true")
+
+    exit! if args-count is 0
+
+    output-to-stdout = (list.index-of 'outfile', keyvalues.keys params) isnt 0
+    if output-to-stdout
+
+      stdout-filename = "#{ uuid! }.txt"
+      params[*] = keyvalue 'outfile', stdout-filename
+
+    errorlevel = iwr options, params
+    exit errorlevel unless errorlevel is 0
+
+    if output-to-stdout
+
+      fail! if not exists stdout-filename
+      for line in list.from-file stdout-filename => lfout line
+      del stdout-filename
